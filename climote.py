@@ -11,7 +11,7 @@ import requests
 from homeassistant.util import Throttle
 import homeassistant.helpers.config_validation as cv
 from homeassistant.components.climate import (
-    ClimateDevice, PLATFORM_SCHEMA, STATE_HEAT,  STATE_OFF, SUPPORT_OPERATION_MODE,
+    ClimateDevice, PLATFORM_SCHEMA, STATE_HEAT,  STATE_ON, STATE_OFF, SUPPORT_OPERATION_MODE,
     SUPPORT_TARGET_TEMPERATURE, SUPPORT_ON_OFF)
 from homeassistant.const import (
     CONF_ID, CONF_NAME,
@@ -30,7 +30,7 @@ ICON = "mdi:thermometer"
 MAX_TEMP = 35
 MIN_TEMP = 5
 
-SUPPORT_FLAGS = (SUPPORT_ON_OFF | SUPPORT_OPERATION_MODE | SUPPORT_TARGET_TEMPERATURE)
+SUPPORT_FLAGS = (SUPPORT_ON_OFF | SUPPORT_TARGET_TEMPERATURE)
 
 DEVICE_SCHEMA = vol.Schema({
     vol.Required(CONF_ID): cv.positive_int,
@@ -91,13 +91,13 @@ class Climote(ClimateDevice):
         """Initialize the thermostat."""
         _LOGGER.info('Initialize Climote Entiry')
         self._climote = ClimoteService(username, password)
-        self._climote.getStatus(False)
         self._force_update = False
+        self._throttled_update(no_throttle=True)
 
     @property
     def supported_features(self):
         """Return the list of supported features."""
-        return SUPPORT_FLAGS | SUPPORT_ON_OFF | SUPPORT_OPERATION_MODE | SUPPORT_TARGET_TEMPERATURE
+        return SUPPORT_FLAGS | SUPPORT_ON_OFF | SUPPORT_TARGET_TEMPERATURE
 
     @property
     def name(self):
@@ -122,7 +122,7 @@ class Climote(ClimateDevice):
     @property
     def current_temperature(self):
         _LOGGER.info("current_temperature: %s", self._climote.data["zone1"]["temperature"])
-        return int(self._climote.data["zone1"]["temperature"])
+        return int(self._climote.data["zone1"]["temperature"]) if self._climote.data["zone1"]["temperature"] != 'n/a' else 0
 
     @property
     def is_on(self):
@@ -151,7 +151,7 @@ class Climote(ClimateDevice):
     @property
     def current_operation(self):
         """Return current operation."""
-        return STATE_HEAT if self._climote.data["zone1"]["status"] == '5' else STATE_OFF
+        return STATE_ON if self._climote.data["zone1"]["status"] == '5' else STATE_OFF
 
     def turn_on(self):
         """Turn Heating Boost On."""
@@ -171,7 +171,10 @@ class Climote(ClimateDevice):
         temperature = kwargs.get(ATTR_TEMPERATURE)
         if temperature is None:
             return
-        # TODO
+        res = self._climote.set_temperature(1, temperature)
+        if(res):
+            self._force_update = True
+        return res
 
     def update(self):
         """Get the latest state from the thermostat."""
@@ -280,12 +283,12 @@ class ClimoteService:
         _LOGGER.debug('Schedule:%s', data)
 
     def set_temperature(self, zone, temp):
-        _LOGGERp.debug('set_temperature zome:%s, temp:%s', zone, temp)
+        _LOGGER.debug('set_temperature zome:%s, temp:%s', zone, temp)
         res = False
         try:
             self.login()
             data = {
-                'temp-set-input[' | zone | ']': temp,
+                'temp-set-input[' + str(zone) + ']': temp,
                 'do': 'Set',
                 'cs_token_rf': self.token
             }
