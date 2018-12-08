@@ -14,18 +14,18 @@ import requests
 from homeassistant.util import Throttle
 import homeassistant.helpers.config_validation as cv
 from homeassistant.components.climate import (
-    ClimateDevice, PLATFORM_SCHEMA, STATE_HEAT,  STATE_ON, STATE_OFF,
-    SUPPORT_OPERATION_MODE,
+    ClimateDevice, PLATFORM_SCHEMA,  STATE_ON, STATE_OFF,
     SUPPORT_TARGET_TEMPERATURE, SUPPORT_ON_OFF)
 from homeassistant.const import (
-    CONF_ID, CONF_NAME,
-    ATTR_TEMPERATURE, CONF_PASSWORD, CONF_USERNAME,
-    CONF_UNIT_OF_MEASUREMENT,
-    CONF_SENSORS, TEMP_CELSIUS)
+    CONF_ID, CONF_NAME, ATTR_TEMPERATURE, CONF_PASSWORD,
+    CONF_USERNAME, TEMP_CELSIUS)
 
 _LOGGER = logging.getLogger(__name__)
 
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=60)
+
+#: Interval in hours that module will try to refresh data from the climote.
+CONF_REFRESH_INTERVAL = 'refresh_interval'
 
 NOCHANGE = 'nochange'
 DOMAIN = 'climote'
@@ -53,23 +53,20 @@ def validate_name(config):
 
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-    vol.Optional(CONF_USERNAME): cv.string,
-    vol.Optional(CONF_PASSWORD): cv.string,
+    vol.Required(CONF_USERNAME): cv.string,
+    vol.Required(CONF_PASSWORD): cv.string,
+    vol.Optional(CONF_REFRESH_INTERVAL, default=24): cv.string,
 })
 
 
-async def async_setup_platform(hass, config, add_entities, discovery_info=None):
+async def async_setup_platform(hass, config, add_entities,
+                               discovery_info=None):
     """Set up the climote platform."""
     _LOGGER.info('Setting up climote platform')
     _LOGGER.info('usernamekey:%s', CONF_USERNAME)
     username = config.get(CONF_USERNAME)
     password = config.get(CONF_PASSWORD)
-
-    # climote = ClimoteService(username, password)
-    # if not climote.login():
-    #    _LOGGER.error("Unable to authenticate to Climote service")
-    #    return False
-    # climote.logout()
+    interval = int(config.get(CONF_REFRESH_INTERVAL))
 
     # Add devices
     climote = ClimoteService(username, password)
@@ -78,20 +75,21 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
 
     entities = []
     for id, name in climote.zones.items():
-        entities.append(Climote(climote, id, name))
+        entities.append(Climote(climote, id, name, interval))
     add_entities(entities)
 
 
 class Climote(ClimateDevice):
     """Representation of a Climote device."""
 
-    def __init__(self, climoteService, zoneid, name):
+    def __init__(self, climoteService, zoneid, name, interval):
         """Initialize the thermostat."""
         _LOGGER.info('Initialize Climote Entiry')
         self._climote = climoteService
         self._zoneid = zoneid
         self._name = name
         self._force_update = False
+        self.throttled_update = Throttle(timedelta(hours=interval))(self._throttled_update)
 
     @property
     def supported_features(self):
@@ -120,20 +118,17 @@ class Climote(ClimateDevice):
 
     @property
     def current_temperature(self):
-        _LOGGER.info("current_temperature: %s", self._climote.data["zone1"]["temperature"])
-        return int(self._climote.data["zone1"]["temperature"]) if self._climote.data["zone1"]["temperature"] != 'n/a' else 0
+        zone = "zone" + str(self._zoneid)
+        _LOGGER.info("current_temperature: Zone: %s, Temp %s C",
+                     zone, self._climote.data[zone]["temperature"])
+        return int(self._climote.data[zone]["temperature"]) \
+            if self._climote.data[zone]["temperature"] != 'n/a' else 0
 
     @property
     def is_on(self):
         """Return current operation. ie. heat, idle."""
-        if(self._zoneid == 1):
-            return True if self._climote.data["zone1"]["status"] == '5' else False
-        if(self._zoneid == 2):
-            return True if self._climote.data["zone2"]["status"] == '5' else False
-        if(self._zoneid == 3):
-            return True if self._climote.data["zone3"]["status"] == '5' else False
-
-        return False
+        zone = "zone" + str(self._zoneid)
+        return True if self._climote.data[zone]["status"] == '5' else False
 
     @property
     def min_temp(self):
@@ -149,23 +144,21 @@ class Climote(ClimateDevice):
     def target_temperature(self):
         """Return the temperature we try to reach."""
         zone = "zone" + str(self._zoneid)
-        _LOGGER.info("target_temperature: %s", self._climote.data["zone1"]["thermostat"])
+        _LOGGER.info("target_temperature: %s",
+                     self._climote.data[zone]["thermostat"])
         return int(self._climote.data[zone]["thermostat"])
 
     @property
     def current_operation(self):
         """Return current operation."""
-        if(self._zoneid == 1):
-            return STATE_ON if self._climote.data["zone1"]["status"] == '5' else STATE_OFF
-        if(self._zoneid == 2):
-            return STATE_ON if self._climote.data["zone2"]["status"] == '5' else STATE_OFF
-        if(self._zoneid == 3):
-            return STATE_ON if self._climote.data["zone3"]["status"] == '5' else STATE_OFF
+        zone = "zone" + str(self._zoneid)
+        return STATE_ON if self._climote.data[zone]["status"] == '5' \
+                           else STATE_OFF
 
     def turn_on(self):
         """Turn Heating Boost On."""
         res = self._climote.boost(self._zoneid, 1)
-        self._force_update=True
+        self._force_update = True
         return res
 
     def turn_off(self):
@@ -180,7 +173,7 @@ class Climote(ClimateDevice):
         temperature = kwargs.get(ATTR_TEMPERATURE)
         if temperature is None:
             return
-        res = self._climote.set_temperature(1, temperature)
+        res = self._climote.set_target_temperature(1, temperature)
         if(res):
             self._force_update = True
         return res
@@ -188,12 +181,11 @@ class Climote(ClimateDevice):
     async def async_update(self):
         """Get the latest state from the thermostat."""
         if self._force_update:
-            await self._throttled_update(no_throttle=True)
+            await self.throttled_update(no_throttle=True)
             self._force_update = False
         else:
-            await self._throttled_update(no_throttle=False)
+            await self.throttled_update(no_throttle=False)
 
-    @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def _throttled_update(self, **kwargs):
         """Get the latest state from the thermostat with a throttle."""
         _LOGGER.info("_throttled_update Force: %s", self._force_update)
@@ -205,15 +197,38 @@ class IllegalStateException(RuntimeError):
         self.args = arg
 
 
+_DEFAULT_JSON = (
+    '{ "holiday": "00", "hold": null, "updated_at": "00:00", '
+    '"unit_time": "00:00", "zone1": { "burner": 0, "status": null, '
+    '"temperature": "0", "thermostat": 0 }, "zone2": { "burner": 0, '
+    '"status": "0", "temperature": "0", "thermostat": 0 }, '
+    '"zone3": { "burner": 0, "status": null, "temperature": "0", '
+    '"thermostat": 0 } }')
+_LOGIN_URL = 'https://climote.climote.ie/manager/login'
+_LOGOUT_URL = 'https://climote.climote.ie/manager/logout'
+_SCHEDULE_ELEMENT = '/manager/edit-heating-schedule?heatingScheduleId'
+
+_STATUS_URL = 'https://climote.climote.ie/manager/get-status'
+_STATUS_FORCE_URL = _STATUS_URL + '?force=1'
+_STATUS_RESPONSE_URL = ('https://climote.climote.ie/manager/'
+                        'waiting-get-status-response')
+_BOOST_URL = 'https://climote.climote.ie/manager/boost'
+_SET_TEMP_URL = 'https://climote.climote.ie/manager/temperature'
+_GET_SCHEDULE_URL = ('https://climote.climote.ie/manager/'
+                     'get-heating-schedule?heatingScheduleId=')
+
+
 class ClimoteService:
+
     def __init__(self, username, password):
         self.s = requests.Session()
-        self.s.headers.update({'User-Agent': 'Mozilla/5.0 Home Assistant Climote Service'})
+        self.s.headers.update({'User-Agent':
+                               'Mozilla/5.0 Home Assistant Climote Service'})
         self.config_id = None
         self.config = None
         self.logged_in = False
         self.creds = {'password': username, 'username': password}
-        self.data = json.loads('{ "holiday": "00", "hold": null, "updated_at": "00:00", "unit_time": "00:00", "zone1": { "burner": 0, "status": null, "temperature": "0", "thermostat": 0 }, "zone2": { "burner": 0, "status": "0", "temperature": "0", "thermostat": 0 }, "zone3": { "burner": 0, "status": null, "temperature": "0", "thermostat": 0 } }')
+        self.data = json.loads(_DEFAULT_JSON)
         self.zones = None
 
     def initialize(self):
@@ -228,11 +243,11 @@ class ClimoteService:
             self.__logout()
 
     def __login(self):
-        r = self.s.post('https://climote.climote.ie/manager/login', data=self.creds)
+        r = self.s.post(_LOGIN_URL, data=self.creds)
         if(r.status_code == requests.codes.ok):
             # Parse the content
             soup = BeautifulSoup(r.content, "lxml")
-            input = soup.find("input")  # First inputhas token {"name":"cs_token_rf"})
+            input = soup.find("input")  # First input has token "cs_token_rf"
             if (len(input['value']) < 2):
                 return False
             self.logged_in = True
@@ -241,10 +256,8 @@ class ClimoteService:
             anchors = soup.findAll("a", href=True)
             for a in anchors:
                 href = a['href']
-                # =255903&startday=monday')):
-                # str = href.decode('utf-8')
                 str = href
-                if (str.startswith('/manager/edit-heating-schedule?heatingScheduleId')):
+                if (str.startswith(_SCHEDULE_ELEMENT)):
                     cut = str.find('&startday')
                     str2 = str[:-(len(str)-cut)]
                     self.config_id = str2[49:]
@@ -253,7 +266,7 @@ class ClimoteService:
 
     def __logout(self):
         _LOGGER.info('Logging Out')
-        r = self.s.get('https://climote.climote.ie/manager/logout')
+        r = self.s.get(_LOGOUT_URL)
         _LOGGER.debug('Logging Out Result: %s', r.status_code)
         return r.status_code == requests.codes.ok
 
@@ -276,12 +289,15 @@ class ClimoteService:
         try:
             # Make the initial request (force the update)
             if(force):
-                r = self.s.post('https://climote.climote.ie/manager/get-status?force=1', data=self.creds)
+                r = self.s.post(_STATUS_FORCE_URL, data=self.creds)
+            else:
+                r = self.s.post(_STATUS_URL, data=self.creds)
 
             # Poll for the actual result. It happens over SMS so takes a while
             self.s.headers.update({'X-Requested-With': 'XMLHttpRequest'})
             r = polling.poll(
-                lambda: self.s.post('https://climote.climote.ie/manager/waiting-get-status-response', data=self.creds),
+                lambda: self.s.post(_STATUS_RESPONSE_URL,
+                                    data=self.creds),
                 step=10,
                 check_success=is_done,
                 poll_forever=False,
@@ -303,7 +319,8 @@ class ClimoteService:
         if(self.logged_in is False):
             raise IllegalStateException("Not logged in")
 
-        r = self.s.get("https://climote.climote.ie/manager/get-heating-schedule?heatingScheduleId="+self.config_id)
+        r = self.s.get(_GET_SCHEDULE_URL
+                       + self.config_id)
         data = r.content
         xml = ET.fromstring(data)
         self.config = xmljson.parker.data(xml)
@@ -322,7 +339,7 @@ class ClimoteService:
                 zones[i] = zone["label"]
         self.zones = zones
 
-    def set_temperature(self, zone, temp):
+    def set_target_temperature(self, zone, temp):
         _LOGGER.debug('set_temperature zome:%s, temp:%s', zone, temp)
         res = False
         try:
@@ -332,7 +349,7 @@ class ClimoteService:
                 'do': 'Set',
                 'cs_token_rf': self.token
             }
-            r = self.s.post('https://climote.climote.ie/manager/temperature', data=data)
+            r = self.s.post(_SET_TEMP_URL=data)
             _LOGGER.info('set_temperature: %d', r.status_code)
             res = r.status_code == requests.codes.ok
         finally:
@@ -340,6 +357,7 @@ class ClimoteService:
         return res
 
     def __boost(self, zoneid, time):
+        """Turn on the heat for a given zone, for a given number of hours"""
         res = False
         try:
             self.__login()
@@ -347,7 +365,7 @@ class ClimoteService:
                 'zoneIds[' + str(zoneid) + ']': time,
                 'cs_token_rf': self.token
             }
-            r = self.s.post('https://climote.climote.ie/manager/boost', data=data)
+            r = self.s.post(_BOOST_URL, data=data)
             _LOGGER.info('Boosting Result: %d', r.status_code)
             res = r.status_code == requests.codes.ok
         finally:
