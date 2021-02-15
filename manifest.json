@@ -3,7 +3,7 @@
   "name": "Climote | Smart Heating Controls",
   "documentation": "https://www.example.com",
   "dependencies": [],
-  "codeowners": ["@VatzU"],
+  "codeowners": ["@VatzU","@demonday"],
   "requirements": ["polling","xmljson"],
   "config_flow": false
 }
