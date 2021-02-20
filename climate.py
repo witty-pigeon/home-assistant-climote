@@ -14,8 +14,8 @@ import requests
 from homeassistant.util import Throttle
 import homeassistant.helpers.config_validation as cv
 from homeassistant.components.climate import (
-    ClimateEntity, PLATFORM_SCHEMA,  STATE_ON, STATE_OFF,
-    SUPPORT_TARGET_TEMPERATURE, HVAC_MODE_OFF)
+    ClimateEntity, PLATFORM_SCHEMA)  
+from homeassistant.components.climate.const import (SUPPORT_TARGET_TEMPERATURE, HVAC_MODE_OFF, HVAC_MODE_HEAT,CURRENT_HVAC_HEAT,CURRENT_HVAC_IDLE)
 from homeassistant.const import (
     CONF_ID, CONF_NAME, ATTR_TEMPERATURE, CONF_PASSWORD,
     CONF_USERNAME, TEMP_CELSIUS, CONF_DEVICES)
@@ -36,6 +36,7 @@ MIN_TEMP = 5
 
 #SUPPORT_FLAGS = (SUPPORT_ON_OFF | SUPPORT_TARGET_TEMPERATURE)
 SUPPORT_FLAGS = SUPPORT_TARGET_TEMPERATURE
+SUPPORT_MODES = [HVAC_MODE_HEAT, HVAC_MODE_OFF]
 
 #DEVICE_SCHEMA = vol.Schema({
 #    vol.Required(CONF_ID): cv.positive_int,
@@ -152,15 +153,18 @@ class Climote(ClimateEntity):
     
     @property
     def hvac_mode(self):
-        """Return current operation ie. heat, cool, idle."""
-        return 'idle'
+#        """Return current operation ie. heat, cool, idle."""
+#        return 'idle'
+        """Return current operation. ie. heat, idle."""
+        zone = "zone" + str(self._zoneid)
+        return 'heat' if self._climote.data[zone]["status"] == '5' else 'idle'
 
     @property
     def hvac_modes(self):
         """Return the list of available hvac operation modes.
         Need to be a subset of HVAC_MODES.
         """
-        return list([HVAC_MODE_OFF])
+        return SUPPORT_MODES
         
     @property
     def name(self):
@@ -190,11 +194,11 @@ class Climote(ClimateEntity):
         return int(self._climote.data[zone]["temperature"]) \
             if self._climote.data[zone]["temperature"] != 'n/a' else 0
 
-    @property
-    def is_on(self):
-        """Return current operation. ie. heat, idle."""
-        zone = "zone" + str(self._zoneid)
-        return True if self._climote.data[zone]["status"] == '5' else False
+#    @property
+#    def is_on(self):
+#        """Return current operation. ie. heat, idle."""
+#        zone = "zone" + str(self._zoneid)
+#        return True if self._climote.data[zone]["status"] == '5' else False
 
     @property
     def min_temp(self):
@@ -215,24 +219,25 @@ class Climote(ClimateEntity):
         return int(self._climote.data[zone]["thermostat"])
 
     @property
-    def current_operation(self):
+    def hvac_action(self):
         """Return current operation."""
         zone = "zone" + str(self._zoneid)
-        return STATE_ON if self._climote.data[zone]["status"] == '5' \
-                           else STATE_OFF
+        return CURRENT_HVAC_HEAT if self._climote.data[zone]["status"] == '5' \
+                           else CURRENT_HVAC_IDLE
 
-    def turn_on(self):
-        """Turn Heating Boost On."""
-        res = self._climote.boost(self._zoneid, 1)
-        self._force_update = True
-        return res
-
-    def turn_off(self):
-        """Turn Heating Boost Off."""
-        res = self._climote.boost(self._zoneid, 0)
-        if(res):
+    def set_hvac_mode(self,hvac_mode):
+        if(hvac_mode==HVAC_MODE_HEAT):
+            """Turn Heating Boost On."""
+            res = self._climote.boost(self._zoneid, 1)
             self._force_update = True
-        return res
+            return res
+        if(hvac_mode==HVAC_MODE_OFF):
+#    def turn_off(self):
+            """Turn Heating Boost Off."""
+            res = self._climote.boost(self._zoneid, 0)
+            if(res):
+                self._force_update = True
+            return res
 
     def set_temperature(self, **kwargs):
         """Set new target temperature."""
@@ -425,7 +430,7 @@ class ClimoteService:
                 'do': 'Set',
                 'cs_token_rf': self.token
             }
-            r = self.s.post(_SET_TEMP_URL=data)
+            r = self.s.post(_SET_TEMP_URL, data=data)
             _LOGGER.info('set_temperature: %d', r.status_code)
             res = r.status_code == requests.codes.ok
         finally:
