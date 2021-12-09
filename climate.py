@@ -83,7 +83,8 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
     # Add devices
     climote = ClimoteService(username, password, climoteID)
-    if not (await climote.initialize()):
+    ci = await climote.initialize()
+    if not (ci):
         return False
 
     entities = []
