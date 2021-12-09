@@ -83,9 +83,9 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
     # Add devices
     climote = ClimoteService(username, password, climoteID)
-    # ci = await climote.initialize()
-    # if not (ci):
-        # return False
+    populatedZone = await climote.populate()
+    if not (populatedZone):
+        return False
 
     entities = []
     for id, name in climote.zones.items():

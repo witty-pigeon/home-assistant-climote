@@ -40,7 +40,7 @@ class ClimoteService:
         self.data = json.loads(_DEFAULT_JSON)
         self.zones = None
 
-    async def initialize(self):
+    async def populate(self):
         try:
             await self.__login()
             await self.__setConfig()
@@ -49,7 +49,7 @@ class ClimoteService:
             #    self.__updateStatus(True)
             return True if(self.config is not None) else False
         finally:
-            self.__logout()
+            await self.__logout()
 
     async def __login(self):
         r = await self.s.post(_LOGIN_URL, data=self.creds)
