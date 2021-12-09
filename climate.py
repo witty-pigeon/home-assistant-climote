@@ -88,7 +88,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
     # Add devices
     climote = ClimoteService(username, password, climoteid)
-    if not (climote.initialize()):
+    if not (await climote.initialize()):
         return False
 
     entities = []
@@ -188,26 +188,26 @@ class Climote(ClimateEntity):
         return CURRENT_HVAC_HEAT if self._climote.data[zone]["status"] == '5' \
                            else CURRENT_HVAC_IDLE
 
-    def set_hvac_mode(self,hvac_mode):
+    async def set_hvac_mode(self,hvac_mode):
         if(hvac_mode==HVAC_MODE_HEAT):
             """Turn Heating Boost On."""
-            res = self._climote.boost(self._zoneid, 1)
+            res = await self._climote.boost(self._zoneid, 1)
             self._force_update = True
             return res
         if(hvac_mode==HVAC_MODE_OFF):
 #    def turn_off(self):
             """Turn Heating Boost Off."""
-            res = self._climote.boost(self._zoneid, 0)
+            res = await self._climote.boost(self._zoneid, 0)
             if(res):
                 self._force_update = True
             return res
 
-    def set_temperature(self, **kwargs):
+    async def set_temperature(self, **kwargs):
         """Set new target temperature."""
         temperature = kwargs.get(ATTR_TEMPERATURE)
         if temperature is None:
             return
-        res = self._climote.set_target_temperature(1, temperature)
+        res = await self._climote.set_target_temperature(1, temperature)
         if(res):
             self._force_update = True
         return res
@@ -254,7 +254,6 @@ _GET_SCHEDULE_URL = ('https://climote.climote.ie/manager/'
 
 
 class ClimoteService:
-
     def __init__(self, username, password, passcode):
         self.s = requests.Session()
         self.s.headers.update({'User-Agent':
@@ -266,10 +265,10 @@ class ClimoteService:
         self.data = json.loads(_DEFAULT_JSON)
         self.zones = None
 
-    def initialize(self):
+    async def initialize(self):
         try:
-            self.__login()
-            self.__setConfig()
+            await self.__login()
+            await self.__setConfig()
             self.__setZones()
             # if not self.__updateStatus(False):
             #    self.__updateStatus(True)
@@ -277,8 +276,8 @@ class ClimoteService:
         finally:
             self.__logout()
 
-    def __login(self):
-        r = self.s.post(_LOGIN_URL, data=self.creds)
+    async def __login(self):
+        r = await self.s.post(_LOGIN_URL, data=self.creds)
         if(r.status_code == requests.codes.ok):
             # Parse the content
             soup = BeautifulSoup(r.content, "lxml")
@@ -297,25 +296,25 @@ class ClimoteService:
                 _LOGGER.debug('heatingScheduleId:%s', self.config_id)
             return self.logged_in
 
-    def __logout(self):
+    async def __logout(self):
         _LOGGER.info('Logging Out')
-        r = self.s.get(_LOGOUT_URL)
+        r = await self.s.get(_LOGOUT_URL)
         _LOGGER.debug('Logging Out Result: %s', r.status_code)
         return r.status_code == requests.codes.ok
 
-    def boost(self, zoneid, time):
+    async def boost(self, zoneid, time):
         _LOGGER.info('Boosting Zone %s', zoneid)
-        return self.__boost(zoneid, time)
+        return await self.__boost(zoneid, time)
 
-    def updateStatus(self, force):
+    async def updateStatus(self, force):
         _LOGGER.info('Updating status')
         try:
-            self.__login()
-            self.__updateStatus(force)
+            await self.__login()
+            await self.__updateStatus(force)
         finally:
             self.__logout()
 
-    def __updateStatus(self, force):
+    async def __updateStatus(self, force):
         def is_done(r):
             return r.text != '0'
         res = None
@@ -323,15 +322,14 @@ class ClimoteService:
         try:
             # Make the initial request (force the update)
             if(force):
-                r = self.s.post(_STATUS_FORCE_URL, data=self.creds)
+                r = await self.s.post(_STATUS_FORCE_URL, data=self.creds)
             else:
-                r = self.s.post(_STATUS_URL, data=self.creds)
+                r = await self.s.post(_STATUS_URL, data=self.creds)
 
             # Poll for the actual result. It happens over SMS so takes a while
             self.s.headers.update({'X-Requested-With': 'XMLHttpRequest'})
-            r = polling.poll(
-                lambda: self.s.post(_STATUS_RESPONSE_URL,
-                                    data=self.creds),
+            r = await polling.poll(
+                lambda: self.s.post(_STATUS_RESPONSE_URL, data=self.creds),
                 step=10,
                 check_success=is_done,
                 poll_forever=False,
@@ -349,12 +347,12 @@ class ClimoteService:
             self.s.headers = tmp
         return res
 
-    def __setConfig(self):
+    async def __setConfig(self):
         if(self.logged_in is False):
             raise IllegalStateException("Not logged in")
 
-        r = self.s.get(_GET_SCHEDULE_URL
-                       + self.config_id)
+        r = await self.s.get(_GET_SCHEDULE_URL
+                             + self.config_id)
         data = r.content
         xml = ET.fromstring(data)
         self.config = xmljson.parker.data(xml)
@@ -373,33 +371,33 @@ class ClimoteService:
                 zones[i] = zone["label"]
         self.zones = zones
 
-    def set_target_temperature(self, zone, temp):
+    async def set_target_temperature(self, zone, temp):
         _LOGGER.debug('set_temperature zome:%s, temp:%s', zone, temp)
         res = False
         try:
-            self.__login()
+            await self.__login()
             data = {
                 'temp-set-input[' + str(zone) + ']': temp,
                 'do': 'Set',
                 'cs_token_rf': self.token
             }
-            r = self.s.post(_SET_TEMP_URL, data=data)
+            r = await self.s.post(_SET_TEMP_URL, data=data)
             _LOGGER.info('set_temperature: %d', r.status_code)
             res = r.status_code == requests.codes.ok
         finally:
-            self.__logout()
+            await self.__logout()
         return res
 
-    def __boost(self, zoneid, time):
+    async def __boost(self, zoneid, time):
         """Turn on the heat for a given zone, for a given number of hours"""
         res = False
         try:
-            self.__login()
+            await self.__login()
             data = {
                 'zoneIds[' + str(zoneid) + ']': time,
                 'cs_token_rf': self.token
             }
-            r = self.s.post(_BOOST_URL, data=data)
+            r = await self.s.post(_BOOST_URL, data=data)
             _LOGGER.info('Boosting Result: %d', r.status_code)
             res = r.status_code == requests.codes.ok
         finally:
