@@ -76,7 +76,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 #       vol.Schema({cv.string: DEVICE_SCHEMA})
 })
 
-def setup_platform(hass, config, add_entities, discovery_info=None):
+async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the ephember thermostat."""
     _LOGGER.info('Setting up climote platform')
     username = config.get(CONF_USERNAME)
@@ -93,8 +93,10 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
 
     entities = []
     for id, name in climote.zones.items():
-        entities.append(Climote(climote, id, name, interval))
-    add_entities(entities)
+        c = Climote(climote, id, name, interval)
+        await c.throttled_update_a
+        entities.append(c)
+    async_add_entities(entities)
 
     return
 
@@ -108,7 +110,10 @@ class Climote(ClimateEntity):
         self._zoneid = zoneid
         self._name = name
         self._force_update = False
-        self.throttled_update = Throttle(timedelta(hours=interval))(self._throttled_update)
+        self._interval = interval
+
+    async def throttled_update_a(self):
+        self.throttled_update = Throttle(timedelta(hours=self.interval))(self._throttled_update)
 
     @property
     def supported_features(self):
@@ -303,6 +308,7 @@ class ClimoteService:
         return self.__boost(zoneid, time)
 
     def updateStatus(self, force):
+        _LOGGER.info('Updating status')
         try:
             self.__login()
             self.__updateStatus(force)
