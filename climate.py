@@ -49,13 +49,27 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
    vol.Optional(CONF_REFRESH_INTERVAL, default=24): cv.string,
 })
 
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    """Set up the ephember thermostat."""
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
+    """Setup up a config entry."""
+
     _LOGGER.info('Setting up climote platform')
     username = config.get(CONF_USERNAME)
     password = config.get(CONF_PASSWORD)
     climoteID = config.get(CONF_ID)
+    interval = int(config.get(CONF_REFRESH_INTERVAL))
 
+    # Add devices
+    climote = ClimoteService(username, password, climoteID)
+    populatedZones = await climote.populate()
+
+async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+    """Set up the climote thermostat."""
+
+    _LOGGER.info('Setting up climote platform')
+    username = config.get(CONF_USERNAME)
+    password = config.get(CONF_PASSWORD)
+    climoteID = config.get(CONF_ID)
     interval = int(config.get(CONF_REFRESH_INTERVAL))
 
     # Add devices
