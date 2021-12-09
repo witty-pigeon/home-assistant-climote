@@ -4,7 +4,7 @@ import json
 import xmljson
 import lxml
 from lxml import etree as ET
-import ClimoteService
+from .climote_service import ClimoteService
 
 import voluptuous as vol
 
@@ -196,7 +196,6 @@ class Climote(ClimateEntity):
             self._force_update = True
             return res
         if(hvac_mode==HVAC_MODE_OFF):
-#    def turn_off(self):
             """Turn Heating Boost Off."""
             res = await self._climote.boost(self._zoneId, 0)
             if(res):
