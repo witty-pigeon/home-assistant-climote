@@ -87,7 +87,7 @@ class ClimoteService:
             await self.__login()
             await self.__updateStatus(force)
         finally:
-            self.__logout()
+            await self.__logout()
 
     async def __updateStatus(self, force):
         def is_done(r):
@@ -126,8 +126,7 @@ class ClimoteService:
         if(self.logged_in is False):
             raise IllegalStateException("Not logged in")
 
-        r = await self.s.get(_GET_SCHEDULE_URL
-                             + self.config_id)
+        r = await self.s.get(_GET_SCHEDULE_URL + self.config_id)
         data = r.content
         xml = ET.fromstring(data)
         self.config = xmljson.parker.data(xml)
@@ -176,7 +175,7 @@ class ClimoteService:
             _LOGGER.info('Boosting Result: %d', r.status_code)
             res = r.status_code == requests.codes.ok
         finally:
-            self.__logout()
+            await self.__logout()
         return res
 
 class IllegalStateException(RuntimeError):

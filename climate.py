@@ -33,12 +33,6 @@ MIN_TEMP = 5
 SUPPORT_FLAGS = SUPPORT_TARGET_TEMPERATURE
 SUPPORT_MODES = [HVAC_MODE_HEAT, HVAC_MODE_OFF]
 
-#DEVICE_SCHEMA = vol.Schema({
-#    vol.Required(CONF_ID): cv.positive_int,
-#    vol.Optional(CONF_NAME): cv.string,
-#}, extra=vol.ALLOW_EXTRA)
-
-
 def validate_name(config):
     """Validate device name."""
     if CONF_NAME in config:
@@ -48,27 +42,11 @@ def validate_name(config):
     config[CONF_NAME] = name
     return config
 
-# CONFIG_SCHEMA = vol.Schema(
-    # {
-        # DOMAIN: vol.Schema(
-            # {
-                # vol.Required(CONF_USERNAME): cv.string,
-                # vol.Required(CONF_PASSWORD): cv.string,
-                # vol.Required(CONF_ID): cv.string,
-                # vol.Optional(CONF_REFRESH_INTERVAL, default=24): cv.string,
-            # }
-        # )
-    # },
-    # extra=vol.ALLOW_EXTRA,
-# )
-
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
    vol.Required(CONF_USERNAME): cv.string,
    vol.Required(CONF_PASSWORD): cv.string,
    vol.Required(CONF_ID): cv.string,
    vol.Optional(CONF_REFRESH_INTERVAL, default=24): cv.string,
-#   vol.Required(CONF_DEVICES):
-#       vol.Schema({cv.string: DEVICE_SCHEMA})
 })
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
@@ -78,20 +56,21 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     password = config.get(CONF_PASSWORD)
     climoteID = config.get(CONF_ID)
 
-
     interval = int(config.get(CONF_REFRESH_INTERVAL))
 
     # Add devices
     climote = ClimoteService(username, password, climoteID)
-    populatedZone = await climote.populate()
-    if not (populatedZone):
+    populatedZones = await climote.populate()
+    if not (populatedZones):
         return False
 
     entities = []
+
     for id, name in climote.zones.items():
         c = Climote(climote, id, name, interval)
         await c.throttled_update_a
         entities.append(c)
+
     async_add_entities(entities)
 
     return
@@ -118,8 +97,6 @@ class Climote(ClimateEntity):
 
     @property
     def hvac_mode(self):
-#        """Return current operation ie. heat, cool, idle."""
-#        return 'idle'
         """Return current operation. ie. heat, idle."""
         zone = "zone" + str(self._zoneId)
         return 'heat' if self._climote.data[zone]["status"] == '5' else 'idle'
@@ -154,8 +131,11 @@ class Climote(ClimateEntity):
     @property
     def current_temperature(self):
         zone = "zone" + str(self._zoneId)
-        _LOGGER.info("current_temperature: Zone: %s, Temp %s C",
-                     zone, self._climote.data[zone]["temperature"])
+        _LOGGER.info(
+            "current_temperature: Zone: %s, Temp %s C",
+            zone,
+            self._climote.data[zone]["temperature"]
+        )
         return int(self._climote.data[zone]["temperature"]) \
             if self._climote.data[zone]["temperature"] != 'n/a' else 0
 
