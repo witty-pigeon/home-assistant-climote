@@ -1,16 +1,10 @@
 import logging
 import polling
-import json
-import xmljson
-import lxml
-from lxml import etree as ET
 from .climote_service import ClimoteService
 
 import voluptuous as vol
 
 from datetime import timedelta
-from bs4 import BeautifulSoup
-import requests
 
 from homeassistant.util import Throttle
 import homeassistant.helpers.config_validation as cv
