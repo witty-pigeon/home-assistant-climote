@@ -14,7 +14,7 @@ import requests
 from homeassistant.util import Throttle
 import homeassistant.helpers.config_validation as cv
 from homeassistant.components.climate import (
-    ClimateEntity, PLATFORM_SCHEMA)  
+    ClimateEntity, PLATFORM_SCHEMA)
 from homeassistant.components.climate.const import (SUPPORT_TARGET_TEMPERATURE, HVAC_MODE_OFF, HVAC_MODE_HEAT,CURRENT_HVAC_HEAT,CURRENT_HVAC_IDLE)
 from homeassistant.const import (
     CONF_ID, CONF_NAME, ATTR_TEMPERATURE, CONF_PASSWORD,
@@ -98,42 +98,6 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
 
     return
 
-
-#new function added
-# async def async_setup(hass, config):
-    # """Set up Climote components."""
-   # if DOMAIN not in config:
-       # return True
-
-   # conf = config[DOMAIN]
-
-   # config_flow.register_flow_implementation(
-       # hass, conf[CONF_CLIENT_ID], conf[CONF_CLIENT_SECRET]
-   # )
-
-    # return True
-
-# async def async_setup_entry(hass, config, async_add_entities,
-                               # discovery_info=None):
-    # """Set up the climote platform."""
-    # _LOGGER.info('Setting up climote platform')
-    # _LOGGER.info('usernamekey:%s', CONF_USERNAME)
-    # username = config.get(CONF_USERNAME)
-    # password = config.get(CONF_PASSWORD)
-    
-    # interval = int(config.get(CONF_REFRESH_INTERVAL))
-
-    # # Add devices
-    # climote = ClimoteService(username, password, climoteid)
-    # if not (climote.initialize()):
-        # return False
-
-    # entities = []
-    # for id, name in climote.zones.items():
-        # entities.append(Climote(climote, id, name, interval))
-    # add_entities(entities)
-
-
 class Climote(ClimateEntity):
     """Representation of a Climote device."""
 
@@ -149,8 +113,8 @@ class Climote(ClimateEntity):
     @property
     def supported_features(self):
         """Return the list of supported features."""
-        return SUPPORT_FLAGS 
-    
+        return SUPPORT_FLAGS
+
     @property
     def hvac_mode(self):
 #        """Return current operation ie. heat, cool, idle."""
@@ -165,7 +129,7 @@ class Climote(ClimateEntity):
         Need to be a subset of HVAC_MODES.
         """
         return SUPPORT_MODES
-        
+
     @property
     def name(self):
         """Return the name of the thermostat."""
@@ -193,12 +157,6 @@ class Climote(ClimateEntity):
                      zone, self._climote.data[zone]["temperature"])
         return int(self._climote.data[zone]["temperature"]) \
             if self._climote.data[zone]["temperature"] != 'n/a' else 0
-
-#    @property
-#    def is_on(self):
-#        """Return current operation. ie. heat, idle."""
-#        zone = "zone" + str(self._zoneid)
-#        return True if self._climote.data[zone]["status"] == '5' else False
 
     @property
     def min_temp(self):
@@ -325,17 +283,6 @@ class ClimoteService:
             self.logged_in = True
             self.token = input['value']
             _LOGGER.info("Token: %s", self.token)
-            #anchors = soup.findAll("a", href=True)
-            #for a in anchors:
-            #    href = a['href']
-            #    str = href
-            #    if (str.startswith(_SCHEDULE_ELEMENT)):
-            #        cut = str.find('&startday')
-            #        str2 = str[:-(len(str)-cut)]
-            #        self.config_id = str2[49:]
-            #        _LOGGER.debug('heatingScheduleId:%s', self.config_id)
-            
-            #the link was commented in latest Climote page, doing simple read from page content
             str = r.text
             sched = str.find(_SCHEDULE_ELEMENT)
             if (sched):
