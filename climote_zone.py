@@ -14,6 +14,8 @@ MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=60)
 SUPPORT_FLAGS = SUPPORT_TARGET_TEMPERATURE
 SUPPORT_MODES = [HVAC_MODE_HEAT, HVAC_MODE_OFF]
 ICON = "mdi:thermometer"
+MAX_TEMP = 35
+MIN_TEMP = 5
 
 class ClimoteZone(ClimateEntity):
     """Representation of a Climote device."""

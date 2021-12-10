@@ -17,9 +17,6 @@ CONF_REFRESH_INTERVAL = 'refresh_interval'
 NOCHANGE = 'nochange'
 DOMAIN = 'climote'
 
-MAX_TEMP = 35
-MIN_TEMP = 5
-
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
    vol.Required(CONF_USERNAME): cv.string,
    vol.Required(CONF_PASSWORD): cv.string,
