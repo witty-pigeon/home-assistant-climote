@@ -16,8 +16,7 @@ from .climate import PLATFORM_SCHEMA
 import voluptuous as vol
 
 from .const import DOMAIN
-from homeassistant.const import (
-    CONF_ID, CONF_NAME, CONF_PASSWORD, CONF_USERNAME, CONF_DEVICES)
+from homeassistant.const import (CONF_ID, CONF_NAME, CONF_PASSWORD, CONF_USERNAME)
 
 _LOGGER = logging.getLogger(__name__)
 

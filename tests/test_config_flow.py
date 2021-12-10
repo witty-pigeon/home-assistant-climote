@@ -6,8 +6,7 @@ from homeassistant.const import CONF_ACCESS_TOKEN, CONF_NAME, CONF_PATH
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-# from custom_components.github_custom import config_flow
-from .const import DOMAIN
+from custom_components.climote import DOMAIN
 
 
 # @patch("custom_components.github_custom.config_flow.GitHubAPI")

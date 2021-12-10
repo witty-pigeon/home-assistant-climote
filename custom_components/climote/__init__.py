@@ -8,7 +8,7 @@ from .climote_zone import ClimoteZone
 import homeassistant.helpers.config_validation as cv
 from homeassistant.components.climate import (PLATFORM_SCHEMA)
 from homeassistant.const import (
-    CONF_ID, CONF_NAME, CONF_PASSWORD, CONF_USERNAME, CONF_DEVICES)
+    CONF_ID, CONF_NAME, CONF_PASSWORD, CONF_USERNAME)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,18 +36,21 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     _LOGGER.info('Setting up climote platform')
     username = config.get(CONF_USERNAME)
     password = config.get(CONF_PASSWORD)
-    climoteID = config.get(CONF_ID)
+    climote_id = config.get(CONF_ID)
     interval = int(config.get(CONF_REFRESH_INTERVAL))
 
     # Add devices
-    climote = ClimoteService(username, password, climoteID)
+    climote = ClimoteService(username, password, climote_id)
     await climote.populate()
     entities = []
 
-    for zoneId, name in climote.zones.items():
-        c = ClimoteZone(climote, zoneId, name, interval)
-        await c.throttled_update_a
-        entities.append(c)
+    if not climote.zones:
+        return False
+
+    for zone_id, name in climote.zones.items():
+        zone = ClimoteZone(climote, zone_id, name, interval)
+        zone.throttled_update_a
+        entities.append(zone)
 
     async_add_entities(entities)
 
