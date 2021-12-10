@@ -33,18 +33,18 @@ def validate_name(config):
     config[CONF_NAME] = name
     return config
 
-async def async_setup_entry(hass, config):
-    """Setup up a config entry."""
+# async def async_setup_entry(hass, config):
+    # """Setup up a config entry."""
 
-    _LOGGER.info('Setting up climote platform')
-    username = config.get(CONF_USERNAME)
-    password = config.get(CONF_PASSWORD)
-    climoteID = config.get(CONF_ID)
-    interval = int(config.get(CONF_REFRESH_INTERVAL))
+    # _LOGGER.info('Setting up climote platform')
+    # username = config.get(CONF_USERNAME)
+    # password = config.get(CONF_PASSWORD)
+    # climoteID = config.get(CONF_ID)
+    # interval = int(config.get(CONF_REFRESH_INTERVAL))
 
     # Add devices
-    climote = ClimoteService(username, password, climoteID)
-    populatedZones = await climote.populate()
+    # climote = ClimoteService(username, password, climoteID)
+    # populatedZones = await climote.populate()
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the climote thermostat."""
@@ -57,10 +57,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
     # Add devices
     climote = ClimoteService(username, password, climoteID)
-    populatedZones = await climote.populate()
-    if not (populatedZones):
-        return False
-
+    await climote.populate()
     entities = []
 
     for zoneId, name in climote.zones.items():
