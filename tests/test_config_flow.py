@@ -7,7 +7,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 # from custom_components.github_custom import config_flow
-from .climate import DOMAIN
+from .const import DOMAIN
 
 
 # @patch("custom_components.github_custom.config_flow.GitHubAPI")
