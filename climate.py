@@ -178,7 +178,7 @@ class Climote(ClimateEntity):
         return CURRENT_HVAC_HEAT if self._climote.data[zone]["status"] == '5' \
                            else CURRENT_HVAC_IDLE
 
-    async def set_hvac_mode(self,hvac_mode):
+    async def async_set_hvac_mode(self,hvac_mode):
         if(hvac_mode==HVAC_MODE_HEAT):
             """Turn Heating Boost On."""
             res = await self._climote.boost(self._zoneId, 1)
@@ -191,7 +191,7 @@ class Climote(ClimateEntity):
                 self._force_update = True
             return res
 
-    async def set_temperature(self, **kwargs):
+    async def async_set_temperature(self, **kwargs):
         """Set new target temperature."""
         temperature = kwargs.get(ATTR_TEMPERATURE)
         if temperature is None:
