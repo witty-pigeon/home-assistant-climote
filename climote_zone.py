@@ -1,5 +1,6 @@
 import logging
 import polling
+from .const import (ICON, MAX_TEMP, MIN_TEMP)
 from datetime import timedelta
 from homeassistant.util import Throttle
 from homeassistant.components.climate import (ClimateEntity)
@@ -13,9 +14,6 @@ _LOGGER = logging.getLogger(__name__)
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=60)
 SUPPORT_FLAGS = SUPPORT_TARGET_TEMPERATURE
 SUPPORT_MODES = [HVAC_MODE_HEAT, HVAC_MODE_OFF]
-ICON = "mdi:thermometer"
-MAX_TEMP = 35
-MIN_TEMP = 5
 
 class ClimoteZone(ClimateEntity):
     """Representation of a Climote device."""

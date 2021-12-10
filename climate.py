@@ -1,6 +1,7 @@
 import logging
 import voluptuous as vol
 
+from .const import (CONF_REFRESH_INTERVAL, NOCHANGE, DOMAIN)
 from .climote_service import ClimoteService
 from .climote_zone import ClimoteZone
 
@@ -12,10 +13,6 @@ from homeassistant.const import (
 _LOGGER = logging.getLogger(__name__)
 
 #: Interval in hours that module will try to refresh data from the climote.
-CONF_REFRESH_INTERVAL = 'refresh_interval'
-
-NOCHANGE = 'nochange'
-DOMAIN = 'climote'
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
    vol.Required(CONF_USERNAME): cv.string,
@@ -32,19 +29,6 @@ def validate_name(config):
     name = 'climote_{}'.format(climoteId)
     config[CONF_NAME] = name
     return config
-
-# async def async_setup_entry(hass, config):
-    # """Setup up a config entry."""
-
-    # _LOGGER.info('Setting up climote platform')
-    # username = config.get(CONF_USERNAME)
-    # password = config.get(CONF_PASSWORD)
-    # climoteID = config.get(CONF_ID)
-    # interval = int(config.get(CONF_REFRESH_INTERVAL))
-
-    # Add devices
-    # climote = ClimoteService(username, password, climoteID)
-    # populatedZones = await climote.populate()
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the climote thermostat."""
