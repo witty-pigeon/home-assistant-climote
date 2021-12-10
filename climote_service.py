@@ -27,7 +27,6 @@ _SET_TEMP_URL = 'https://climote.climote.ie/manager/temperature'
 _GET_SCHEDULE_URL = ('https://climote.climote.ie/manager/'
                      'get-heating-schedule?heatingScheduleId=')
 
-
 class ClimoteService:
     def __init__(self, username, password, passcode):
         self.s = requests.Session()
