@@ -1,1 +1,1 @@
-"""Setup for CLimote"""
+"""Setup for Climote"""

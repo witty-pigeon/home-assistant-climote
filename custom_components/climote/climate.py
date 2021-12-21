@@ -34,24 +34,24 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     """Set up the climote thermostat."""
 
     _LOGGER.info('Setting up climote platform')
-    username = config.get(CONF_USERNAME)
-    password = config.get(CONF_PASSWORD)
-    climote_id = config.get(CONF_ID)
-    interval = int(config.get(CONF_REFRESH_INTERVAL))
+    # username = config.get(CONF_USERNAME)
+    # password = config.get(CONF_PASSWORD)
+    # climote_id = config.get(CONF_ID)
+    # interval = int(config.get(CONF_REFRESH_INTERVAL))
 
     # Add devices
-    climote = ClimoteService(username, password, climote_id)
-    await climote.populate()
-    entities = []
+    # climote = ClimoteService(username, password, climote_id)
+    # await climote.populate()
+    # entities = []
 
-    if not climote.zones:
-        return False
+    # if not climote.zones:
+        # return False
 
-    for zone_id, name in climote.zones.items():
-        zone = ClimoteZone(climote, zone_id, name, interval)
-        zone.throttled_update_a
-        entities.append(zone)
+    # for zone_id, name in climote.zones.items():
+        # zone = ClimoteZone(climote, zone_id, name, interval)
+        # zone.throttled_update_a
+        # entities.append(zone)
 
-    async_add_entities(entities)
+    # async_add_entities(entities)
 
     return

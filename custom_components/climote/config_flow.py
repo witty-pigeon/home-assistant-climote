@@ -20,12 +20,12 @@ from homeassistant.const import (CONF_ID, CONF_NAME, CONF_PASSWORD, CONF_USERNAM
 
 _LOGGER = logging.getLogger(__name__)
 
-async def validate_auth(username: str, password: str, climoteId: str, hass: core.HassJob) -> None:
+async def validate_auth(username: str, password: str, climote_id: str, hass: core.HassJob) -> None:
     """Validates a GitHub access token.
     Raises a ValueError if the auth token is invalid.
     """
     # session = async_get_clientsession(hass)
-    climote = ClimoteService(username, password, climoteId)
+    climote = ClimoteService(username, password, climote_id)
     await climote.populate()
 
     if climote.zones == None or len(climote.zones) < 1:
@@ -45,8 +45,8 @@ class ClimoteCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 username = user_input[CONF_USERNAME]
                 password = user_input[CONF_PASSWORD]
-                climoteId = user_input[CONF_ID]
-                await validate_auth(username, password, climoteId, self.hass)
+                climote_id = user_input[CONF_ID]
+                await validate_auth(username, password, climote_id, self.hass)
             except ValueError:
                 errors["base"] = "auth"
             if not errors:
