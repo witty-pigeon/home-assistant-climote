@@ -20,7 +20,7 @@ SUPPORT_MODES = [HVAC_MODE_HEAT, HVAC_MODE_OFF]
 class ClimoteZone(ClimateEntity):
     """Representation of a Climote device."""
 
-    def __init__(self, climoteService, zoneId, name, interval):
+    def __init__(self, climoteService, zoneId, name, interval, hass):
         """Initialize the thermostat."""
         _LOGGER.info('Initialize Climote Entity')
         self._climote = climoteService
@@ -30,6 +30,7 @@ class ClimoteZone(ClimateEntity):
         self._interval = interval
         # self.throttled_update = None
         self.throttled_update = Throttle(timedelta(hours=interval))(self._throttled_update)
+        self.hass = hass
 
     # async def throttled_update_a(self):
         # self.throttled_update = Throttle(timedelta(hours=self.interval))(self._throttled_update)
@@ -108,38 +109,38 @@ class ClimoteZone(ClimateEntity):
         return CURRENT_HVAC_HEAT if self._climote.data[zone]["status"] == '5' \
                            else CURRENT_HVAC_IDLE
 
-    async def async_set_hvac_mode(self,hvac_mode):
-        if(hvac_mode==HVAC_MODE_HEAT):
+    def set_hvac_mode(self,hvac_mode):
+        if hvac_mode==HVAC_MODE_HEAT:
             """Turn Heating Boost On."""
-            res = await self._climote.boost(self._zoneId, 1)
+            res = self._climote.boost(self._zoneId, 1)
             self._force_update = True
             return res
-        if(hvac_mode==HVAC_MODE_OFF):
+        if hvac_mode==HVAC_MODE_OFF:
             """Turn Heating Boost Off."""
-            res = await self._climote.boost(self._zoneId, 0)
+            res = self._climote.boost(self._zoneId, 0)
             if(res):
                 self._force_update = True
             return res
 
-    async def async_set_temperature(self, **kwargs):
+    def set_temperature(self, **kwargs):
         """Set new target temperature."""
         temperature = kwargs.get(ATTR_TEMPERATURE)
         if temperature is None:
             return
-        res = await self._climote.set_target_temperature(1, temperature)
+        res = self._climote.set_target_temperature(1, temperature)
         if(res):
             self._force_update = True
         return res
 
-    async def async_update(self):
+    def update(self):
         """Get the latest state from the thermostat."""
         if self._force_update:
-            await self.throttled_update(no_throttle=True)
+            self.throttled_update(no_throttle=True)
             self._force_update = False
         else:
-            await self.throttled_update(no_throttle=False)
+            self.throttled_update(no_throttle=False)
 
-    async def _throttled_update(self, **kwargs):
+    def _throttled_update(self, **kwargs):
         """Get the latest state from the thermostat with a throttle."""
         _LOGGER.info("_throttled_update Force: %s", self._force_update)
         self._climote.updateStatus(self._force_update)

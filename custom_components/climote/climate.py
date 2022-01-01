@@ -61,7 +61,7 @@ async def get_devices(climote,hass):
     _LOGGER.info("Climote devices zones: %", zones)
     for zone_id, name in climote.zones.items():
         interval = 1
-        cz = ClimoteZone(climote, zone_id, name, interval)
+        cz = ClimoteZone(climote, zone_id, name, interval, hass)
         _LOGGER.info("Climote device: Adding %s", str(cz))
         devices.append(cz)
 

@@ -5,6 +5,7 @@ import json
 import xmljson
 import lxml
 import xml.etree.ElementTree as ET
+import polling
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,19 +41,19 @@ class ClimoteService:
         self.data = json.loads(_DEFAULT_JSON)
         self.zones = None
 
-    async def populate(self):
+    def populate(self):
         try:
-            await self.__login()
-            await self.__setConfig()
+            self.__login()
+            self.__setConfig()
             self.__setZones()
             # if not self.__updateStatus(False):
             #    self.__updateStatus(True)
             return True if(self.config is not None) else False
         finally:
-            await self.__logout()
+            self.__logout()
 
-    async def __login(self):
-        r = await self.s.post(_LOGIN_URL, data=self.creds)
+    def __login(self):
+        r = self.s.post(_LOGIN_URL, data=self.creds)
         if(r.status_code == requests.codes.ok):
             # Parse the content
             soup = BeautifulSoup(r.content, "lxml")
@@ -71,25 +72,25 @@ class ClimoteService:
                 _LOGGER.debug('heatingScheduleId:%s', self.config_id)
             return self.logged_in
 
-    async def __logout(self):
+    def __logout(self):
         _LOGGER.info('Logging Out')
-        r = await self.s.get(_LOGOUT_URL)
+        r = self.s.get(_LOGOUT_URL)
         _LOGGER.debug('Logging Out Result: %s', r.status_code)
         return r.status_code == requests.codes.ok
 
-    async def boost(self, zoneid, time):
+    def boost(self, zoneid, time):
         _LOGGER.info('Boosting Zone %s', zoneid)
-        return await self.__boost(zoneid, time)
+        return self.__boost(zoneid, time)
 
-    async def updateStatus(self, force):
+    def updateStatus(self, force):
         _LOGGER.info('Updating status')
         try:
-            await self.__login()
-            await self.__updateStatus(force)
+            self.__login()
+            self.__updateStatus(force)
         finally:
-            await self.__logout()
+            self.__logout()
 
-    async def __updateStatus(self, force):
+    def __updateStatus(self, force):
         def is_done(r):
             return r.text != '0'
         res = None
@@ -97,13 +98,13 @@ class ClimoteService:
         try:
             # Make the initial request (force the update)
             if(force):
-                r = await self.s.post(_STATUS_FORCE_URL, data=self.creds)
+                r = self.s.post(_STATUS_FORCE_URL, data=self.creds)
             else:
-                r = await self.s.post(_STATUS_URL, data=self.creds)
+                r = self.s.post(_STATUS_URL, data=self.creds)
 
             # Poll for the actual result. It happens over SMS so takes a while
             self.s.headers.update({'X-Requested-With': 'XMLHttpRequest'})
-            r = await polling.poll(
+            r = polling.poll(
                 lambda: self.s.post(_STATUS_RESPONSE_URL, data=self.creds),
                 step=10,
                 check_success=is_done,
@@ -122,11 +123,11 @@ class ClimoteService:
             self.s.headers = tmp
         return res
 
-    async def __setConfig(self):
+    def __setConfig(self):
         if(self.logged_in is False):
             raise IllegalStateException("Not logged in")
 
-        r = await self.s.get(_GET_SCHEDULE_URL + self.config_id)
+        r = self.s.get(_GET_SCHEDULE_URL + self.config_id)
         data = r.content
         xml = ET.fromstring(data)
         self.config = xmljson.parker.data(xml)
@@ -145,28 +146,28 @@ class ClimoteService:
                 zones[i] = zone["label"]
         self.zones = zones
 
-    async def set_target_temperature(self, zone, temp):
+    def set_target_temperature(self, zone, temp):
         _LOGGER.debug('set_temperature zome:%s, temp:%s', zone, temp)
         res = False
         try:
-            await self.__login()
+            self.__login()
             data = {
                 'temp-set-input[' + str(zone) + ']': temp,
                 'do': 'Set',
                 'cs_token_rf': self.token
             }
-            r = await self.s.post(_SET_TEMP_URL, data=data)
+            r = self.s.post(_SET_TEMP_URL, data=data)
             _LOGGER.info('set_temperature: %d', r.status_code)
             res = r.status_code == requests.codes.ok
         finally:
-            await self.__logout()
+            self.__logout()
         return res
 
-    async def __boost(self, zoneid, time):
+    def __boost(self, zoneid, time):
         """Turn on the heat for a given zone, for a given number of hours"""
         res = False
         try:
-            await self.__login()
+            self.__login()
             data = {
                 'zoneIds[' + str(zoneid) + ']': time,
                 'cs_token_rf': self.token
@@ -175,7 +176,7 @@ class ClimoteService:
             _LOGGER.info('Boosting Result: %d', r.status_code)
             res = r.status_code == requests.codes.ok
         finally:
-            await self.__logout()
+            self.__logout()
         return res
 
 class IllegalStateException(RuntimeError):
