@@ -1,57 +1,76 @@
+from datetime import timedelta
+from enum import Enum
 import logging
+from typing import Any, Callable, Dict, List, Optional
+
+from homeassistant import config_entries, core
+from homeassistant.components.climate import PLATFORM_SCHEMA, ClimateEntity
+import homeassistant.helpers.config_validation as cv
+
+from homeassistant.helpers.typing import (
+    ConfigType,
+    DiscoveryInfoType,
+    HomeAssistantType,
+)
 import voluptuous as vol
 
-from .const import (CONF_REFRESH_INTERVAL, NOCHANGE, DOMAIN)
+from .const import DOMAIN, CONF_USERNAME, CONF_PASSWORD, CONF_DEVICE_ID
 from .climote_service import ClimoteService
 from .climote_zone import ClimoteZone
 
-import homeassistant.helpers.config_validation as cv
-from homeassistant.components.climate import (PLATFORM_SCHEMA)
-from homeassistant.const import (
-    CONF_ID, CONF_NAME, CONF_PASSWORD, CONF_USERNAME)
-
 _LOGGER = logging.getLogger(__name__)
 
-#: Interval in hours that module will try to refresh data from the climote.
 
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-   vol.Required(CONF_USERNAME): cv.string,
-   vol.Required(CONF_PASSWORD): cv.string,
-   vol.Required(CONF_ID): cv.string,
-   vol.Optional(CONF_REFRESH_INTERVAL, default=24): cv.string,
-})
+PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
+    {
+        vol.Required(CONF_USERNAME): cv.string,
+        vol.Required(CONF_PASSWORD): cv.string,
+        vol.Required(CONF_DEVICE_ID): cv.string,
+    }
+)
 
-def validate_name(config):
-    """Validate device name."""
-    if CONF_NAME in config:
-        return config
-    climoteId = config[CONF_ID]
-    name = 'climote_{}'.format(climoteId)
-    config[CONF_NAME] = name
-    return config
+async def async_setup_entry(
+    hass: core.HomeAssistant,
+    config_entry: config_entries.ConfigEntry,
+    async_add_entities,
+):
+    """Setup sensors from a config entry created in the integrations UI."""
+    config = hass.data[DOMAIN][config_entry.entry_id]
+    climote = build_climote_service(config)
+    devices = await get_devices(climote, hass)
+    async_add_entities(devices, update_before_add=True)
 
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    """Set up the climote thermostat."""
+# async def async_setup_platform(
+    # hass: HomeAssistantType,
+    # config: ConfigType,
+    # add_entities: Callable,
+    # discovery_info: Optional[DiscoveryInfoType] = None,
+# ) -> None:
+    # climote = build_climote_service(config)
+    # devices = await get_devices(climote)
+    # add_entities(devices)
 
-    _LOGGER.info('Setting up climote platform')
-    # username = config.get(CONF_USERNAME)
-    # password = config.get(CONF_PASSWORD)
-    # climote_id = config.get(CONF_ID)
-    # interval = int(config.get(CONF_REFRESH_INTERVAL))
+async def get_devices(climote,hass):
+    devices = []
 
-    # Add devices
-    # climote = ClimoteService(username, password, climote_id)
-    # await climote.populate()
-    # entities = []
+    zones = await hass.async_add_executor_job(lambda: climote.populate())
+    if climote.zones is None:
+        _LOGGER.info("Climote devices: None")
+        return devices
 
-    # if not climote.zones:
-        # return False
+    _LOGGER.info("Climote devices zones: %", zones)
+    for zone_id, name in climote.zones.items():
+        interval = 1
+        cz = ClimoteZone(climote, zone_id, name, interval)
+        _LOGGER.info("Climote device: Adding %s", str(cz))
+        devices.append(cz)
 
-    # for zone_id, name in climote.zones.items():
-        # zone = ClimoteZone(climote, zone_id, name, interval)
-        # zone.throttled_update_a
-        # entities.append(zone)
+    _LOGGER.info("Climote devices " + str(devices) + " " + str(len(devices)))
+    return devices
 
-    # async_add_entities(entities)
+def build_climote_service(config) -> ClimoteService:
+    username = config[CONF_USERNAME]
+    password = config[CONF_PASSWORD]
+    device_id = config[CONF_DEVICE_ID]
 
-    return
+    return ClimoteService(username, password, device_id)

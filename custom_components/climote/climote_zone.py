@@ -1,7 +1,7 @@
 import logging
-import polling
-from .const import (ICON, MAX_TEMP, MIN_TEMP)
 from datetime import timedelta
+import polling
+
 from homeassistant.util import Throttle
 from homeassistant.components.climate import (ClimateEntity)
 from homeassistant.components.climate.const import (
@@ -9,6 +9,8 @@ from homeassistant.components.climate.const import (
     HVAC_MODE_OFF,
     HVAC_MODE_HEAT,CURRENT_HVAC_HEAT,CURRENT_HVAC_IDLE)
 from homeassistant.const import (ATTR_TEMPERATURE, TEMP_CELSIUS)
+
+from .const import (ICON, MAX_TEMP, MIN_TEMP)
 
 _LOGGER = logging.getLogger(__name__)
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=60)
@@ -26,9 +28,11 @@ class ClimoteZone(ClimateEntity):
         self._name = name
         self._force_update = False
         self._interval = interval
+        # self.throttled_update = None
+        self.throttled_update = Throttle(timedelta(hours=interval))(self._throttled_update)
 
-    async def throttled_update_a(self):
-        self.throttled_update = Throttle(timedelta(hours=self.interval))(self._throttled_update)
+    # async def throttled_update_a(self):
+        # self.throttled_update = Throttle(timedelta(hours=self.interval))(self._throttled_update)
 
     @property
     def supported_features(self):

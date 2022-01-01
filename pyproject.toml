@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "home-assistant-climote"
+version = "0.1.0"
+description = ""
+authors = ["Conor Mongey <conor@mongey.net>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+bs4 = "^0.0.1"
+xmljson = "^0.2.1"
+lxml = "^4.7.1"
+requests = "^2.26.0"
+polling = "^0.3.2"
+pytest-homeassistant-custom-component = "^0.5.9"
+homeassistant = "^2021.12.5"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.5"
+#pytest-cov = "^3.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

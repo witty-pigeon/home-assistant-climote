@@ -1,0 +1,5 @@
+
+bs4
+xmljson
+lxml
+eytest = "^6.2.5"

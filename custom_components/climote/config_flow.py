@@ -2,112 +2,94 @@ from copy import deepcopy
 import logging
 from typing import Any, Dict, Optional
 
-from homeassistant import config_entries, core
-from homeassistant.const import CONF_ACCESS_TOKEN, CONF_NAME, CONF_PATH, CONF_URL
-from homeassistant.core import callback
+from homeassistant import config_entries, core, data_entry_flow
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity_registry import (
     async_entries_for_config_entry,
     async_get_registry,
 )
+
 from .climote_service import ClimoteService
-from .climate import PLATFORM_SCHEMA
 import voluptuous as vol
 
-from .const import DOMAIN
-from homeassistant.const import (CONF_ID, CONF_NAME, CONF_PASSWORD, CONF_USERNAME)
+from .const import DOMAIN, CONF_USERNAME, CONF_PASSWORD, CONF_DEVICE_ID
 
 _LOGGER = logging.getLogger(__name__)
 
-async def validate_auth(username: str, password: str, climote_id: str, hass: core.HassJob) -> None:
-    """Validates a GitHub access token.
-    Raises a ValueError if the auth token is invalid.
-    """
-    # session = async_get_clientsession(hass)
-    climote = ClimoteService(username, password, climote_id)
-    await climote.populate()
-
-    if climote.zones == None or len(climote.zones) < 1:
-        raise ValueError
-
+DATA_SCHEMA = {
+    vol.Required(CONF_USERNAME): str,
+    vol.Required(CONF_PASSWORD): str,
+    vol.Required(CONF_DEVICE_ID): str,
+}
 
 class ClimoteCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Climote Custom config flow."""
+    # The schema version of the entries that it creates
+    # Home Assistant will call your migrate method if the version changes
+    # (this is not implemented yet)
+    VERSION = 1
 
-    data: Optional[Dict[str, Any]]
+    def __init__(self):
+        """Initialize the config flow."""
+        self.config = {}
+        self.climote_service = None
+        self._errors = {}
 
-    async def async_step_user(self, user_input: Optional[Dict[str, Any]] = None):
-        """Invoked when a user initiates a flow via the user interface."""
-        errors: Dict[str, str] = {}
+    async def async_step_user(self, user_input=None):
+        self._errors = {}
 
-        if user_input is not None:
-            try:
-                username = user_input[CONF_USERNAME]
-                password = user_input[CONF_PASSWORD]
-                climote_id = user_input[CONF_ID]
-                await validate_auth(username, password, climote_id, self.hass)
-            except ValueError:
-                errors["base"] = "auth"
-            if not errors:
-                # Input is valid, set data.
-                self.data = user_input
+        if not user_input:
+            return self._show_initial_form()
 
-        return self.async_show_form(
-            step_id="user", data_schema=PLATFORM_SCHEMA, errors=errors
+        self._save_user_input_to_config(user_input=user_input)
+
+        try:
+            self._config_climote_service()
+        except KeyError as err:
+            _LOGGER.error("Error configuring climote service: %s", err)
+            self._errors["base"] = "missing_field"
+            return self._show_initial_form()
+
+        try:
+            await self.hass.async_add_executor_job(
+                self.climote_service.populate
+            )
+        except BaseException as err:
+            _LOGGER.error("Error populating: %s, %s", self.climote_service.zones, err)
+            self._errors["base"] = "no zones"
+            return self._show_initial_form()
+
+        if self.climote_service.zones == None or len(self.climote_service.zones) < 1:
+            _LOGGER.error("Error no zones: %s", self.climote_service.zones)
+            self._errors["base"] = "no zones"
+            return self._show_initial_form()
+
+        return self.async_create_entry(
+            title="Add climote zones",
+            data=user_input,
         )
 
-    @staticmethod
-    @callback
-    def async_get_options_flow(config_entry):
-        """Get the options flow for this handler."""
-        return OptionsFlowHandler(config_entry)
 
-
-class OptionsFlowHandler(config_entries.OptionsFlow):
-    """Handles options flow for the component."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
-
-    async def async_step_init(
-        self, user_input: Dict[str, Any] = None
-    ) -> Dict[str, Any]:
-        """Manage the options for the custom component."""
-        errors: Dict[str, str] = {}
-        # Grab all configured repos from the entity registry so we can populate the
-        # multi-select dropdown that will allow a user to remove a repo.
-        # entity_registry = await async_get_registry(self.hass)
-        # entries = async_entries_for_config_entry(
-            # entity_registry,
-            # self.config_entry.entry_id
-        # )
-        # Default value for our multi-select.
-        # all_repos = {e.entity_id: e.original_name for e in entries}
-        # repo_map = {e.entity_id: e for e in entries}
-
-        # if user_input is not None:
-            # updated_repos = deepcopy(self.config_entry.data[CONF_REPOS])
-
-            # Remove any unchecked repos.
-            # removed_entities = [
-                # entity_id
-                # for entity_id in repo_map.keys()
-                # if entity_id not in user_input["repos"]
-            # ]
-            # for entity_id in removed_entities:
-                # Unregister from HA
-                # entity_registry.async_remove(entity_id)
-                # Remove from our configured repos.
-                # entry = repo_map[entity_id]
-                # entry_path = entry.unique_id
-                # updated_repos = [e for e in updated_repos if e["path"] != entry_path]
-
-        options_schema  = {
-            vol.Required("username"): str,
-            vol.Required("password"): str,
-        }
-
+    def _show_initial_form(self):
         return self.async_show_form(
-            step_id="init", data_schema=options_schema, errors=errors
+            step_id="user",
+            data_schema=vol.Schema(DATA_SCHEMA),
+            errors=self._errors)
+
+    def _config_climote_service(self) -> None:
+        """Configure the climote service with the saved user input."""
+        self.climote_service = ClimoteService(
+            self.config[CONF_USERNAME],
+            self.config[CONF_PASSWORD],
+            self.config[CONF_DEVICE_ID],
         )
+
+    def _save_user_input_to_config(self, user_input=None) -> None:
+        """Process user_input to save to self.config.
+        user_input can be a dictionary of strings or an internally
+        saved config_entry data entry. This function will convert all to internal strings.
+        """
+        if user_input is None:
+            return
+
+        self.config = user_input

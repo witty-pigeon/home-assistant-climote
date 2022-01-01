@@ -4,6 +4,7 @@ import requests
 import json
 import xmljson
 import lxml
+import xml.etree.ElementTree as ET
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,10 +63,10 @@ class ClimoteService:
             self.token = input['value']
             _LOGGER.info("Token: %s", self.token)
             str = r.text
-            sched = str.find(_SCHEDULE_ELEMENT)
-            if (sched):
-                cut = str.find('&startday',sched)
-                str2 = str[sched:-(len(str)-cut)]
+            schedule = str.find(_SCHEDULE_ELEMENT)
+            if (schedule):
+                cut = str.find('&startday',schedule)
+                str2 = str[schedule:-(len(str)-cut)]
                 self.config_id = str2[49:]
                 _LOGGER.debug('heatingScheduleId:%s', self.config_id)
             return self.logged_in
@@ -170,7 +171,7 @@ class ClimoteService:
                 'zoneIds[' + str(zoneid) + ']': time,
                 'cs_token_rf': self.token
             }
-            r = await self.s.post(_BOOST_URL, data=data)
+            r = self.s.post(_BOOST_URL, data=data)
             _LOGGER.info('Boosting Result: %d', r.status_code)
             res = r.status_code == requests.codes.ok
         finally:

@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -e
+
+HOST="192.168.1.50"
+PORT=8123
+
+rsync -r custom_components/climote $HOST:/var/data/homeassistant/custom_components/
+ssh $HOST docker-compose restart homeassistant
+sleep 1
+
+while [[ "$(curl -s -o /dev/null -w ''%{http_code}'' $HOST:$PORT)" != "200" ]]; do
+  sleep 1
+  printf '.'
+done
+
+echo 'ready'
