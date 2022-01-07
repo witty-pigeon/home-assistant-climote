@@ -1,0 +1,19 @@
+{
+  "config": {
+    "error": {
+      "auth": "The auth details provided is not valid.",
+      "no_zones": "Could not retrieve zones. Please check your auth details."
+    },
+    "step": {
+      "user": {
+        "data": {
+          "username": "Email address",
+          "password": "Climote password",
+          "device_id": "Climote device ID"
+        },
+        "description": "Enter your Climote credentials.",
+        "title": "Authentication"
+      }
+    }
+  }
+}

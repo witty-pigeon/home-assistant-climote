@@ -56,12 +56,12 @@ class ClimoteCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
         except BaseException as err:
             _LOGGER.error("Error populating: %s, %s", self.climote_service.zones, err)
-            self._errors["base"] = "no zones"
+            self._errors["base"] = "auth"
             return self._show_initial_form()
 
         if self.climote_service.zones == None or len(self.climote_service.zones) < 1:
             _LOGGER.error("Error no zones: %s", self.climote_service.zones)
-            self._errors["base"] = "no zones"
+            self._errors["base"] = "no_zones"
             return self._show_initial_form()
 
         return self.async_create_entry(
