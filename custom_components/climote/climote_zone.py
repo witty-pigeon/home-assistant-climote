@@ -16,6 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=60)
 SUPPORT_FLAGS = SUPPORT_TARGET_TEMPERATURE
 SUPPORT_MODES = [HVAC_MODE_HEAT, HVAC_MODE_OFF]
+BOOST_TIME = 8
 
 class ClimoteZone(ClimateEntity):
     """Representation of a Climote device."""
@@ -112,7 +113,7 @@ class ClimoteZone(ClimateEntity):
     def set_hvac_mode(self,hvac_mode):
         if hvac_mode==HVAC_MODE_HEAT:
             """Turn Heating Boost On."""
-            res = self._climote.boost(self._zoneId, 1)
+            res = self._climote.boost(self._zoneId, BOOST_TIME)
             self._force_update = True
             return res
         if hvac_mode==HVAC_MODE_OFF:
