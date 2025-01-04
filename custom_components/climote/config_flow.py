@@ -5,10 +5,6 @@ from typing import Any, Dict, Optional
 from homeassistant import config_entries, core, data_entry_flow
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.entity_registry import (
-    async_entries_for_config_entry,
-    async_get_registry,
-)
 
 from .climote_service import ClimoteService
 import voluptuous as vol
